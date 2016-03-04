@@ -141,7 +141,7 @@ DWORD WINAPI WriteToPipe(LPVOID lpParam)
 	BOOL bSuccess = FALSE;
 	HANDLE hParentStdIn = GetStdHandle(STD_INPUT_HANDLE);
 
-	// in an infinite loop the Parent program reads from console commands
+	// in an infinite loop the Parent program reads commands from console
 	// and puts it into Child's (Child is CMD.EXE process) STDIN
 	for (;;)
 	{
