@@ -92,6 +92,8 @@ int __cdecl srv(void)
 	// No longer need server socket
 	closesocket(ListenSocket);
 
+	// TODO: create child process
+
 	// Receive until the peer shuts down the connection
 	do {
 

@@ -2,7 +2,7 @@
 //
 
 #include "stdafx.h"
-
+#include "redirected_input_ouput.h"
 int __cdecl cli(int argc, char **argv);
 int __cdecl srv(void);
 
@@ -14,6 +14,9 @@ int main(int argc, TCHAR *argv[])
 	}
 	if ((argc == 2) && (!strcmp(argv[1], "srv"))) {
 		return srv();
+	}
+	else {
+		init_child_process();
 	}
 
     return 0;
