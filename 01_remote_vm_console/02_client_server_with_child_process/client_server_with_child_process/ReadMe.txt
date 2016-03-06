@@ -5,7 +5,9 @@
 client_server_with_child_process.exe srv
 Потом клиент (с опцией cli)
 
-Пока только общение между сервером и клиентом (смотри TODOs), т.е. еще нет stage I на стороне сервера.
-
+Сервер использует stage I.
+1 раз отрабатывает,вроде, как надо, а во второй раз висит на:
+	bSuccess = ReadFile(g_hChildStd_OUT_Rd, chBuf, BUFSIZE, &dwRead, NULL); (см. redirected_input_output.cpp) (это все на стороне сервера)
+возможно, висит, т.к. дочерний процесс не отвечает...
 
 ! Don't forget multibyte!

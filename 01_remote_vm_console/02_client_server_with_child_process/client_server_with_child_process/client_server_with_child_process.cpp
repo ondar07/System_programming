@@ -15,9 +15,6 @@ int main(int argc, TCHAR *argv[])
 	if ((argc == 2) && (!strcmp(argv[1], "srv"))) {
 		return srv();
 	}
-	else {
-		init_child_process();
-	}
 
     return 0;
 
