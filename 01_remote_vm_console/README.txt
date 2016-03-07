@@ -4,4 +4,4 @@ Parent умеет писать в -> Child' STDIN
 Parent умеет читать из <- Child's STDOUT.
 
 02_client_server_with_child_process -- Stage II.
-Еще не сделано.
+См. соответствующий README в этой директории
