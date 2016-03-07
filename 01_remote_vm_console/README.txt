@@ -5,3 +5,5 @@ Parent умеет читать из <- Child's STDOUT.
 
 02_client_server_with_child_process -- Stage II.
 См. соответствующий README в этой директории
+
+03_service -- Stage III.
