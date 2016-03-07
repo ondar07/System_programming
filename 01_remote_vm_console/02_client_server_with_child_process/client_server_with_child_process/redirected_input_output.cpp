@@ -12,7 +12,7 @@ HANDLE g_hChildStd_OUT_Wr = NULL;
 static void CreateChildProcess(void);		// create Child process -- CMD.EXE (that will execute our commands written in the pipe)
 static void ErrorExit(PTSTR);		// error handling
 
-int init_child_process()
+void init_child_process()
 {
 	SECURITY_ATTRIBUTES saAttr;
 
@@ -58,7 +58,6 @@ int init_child_process()
 		NULL);   // returns the thread identifier 
 	*/
 
-	return 0;
 }
 
 // Create a child process that uses the previously created pipes for STDIN and STDOUT.
@@ -118,11 +117,15 @@ int WriteToPipeFromSocket(SOCKET &ClientSocket)
 
 	dwRead = recv(ClientSocket, chBuf, BUFSIZE, 0);
 	if (dwRead > 0) {
-		//printf_s("Server get a message: %s\n", chBuf);
-		bSuccess = WriteFile(g_hChildStd_IN_Wr, chBuf, dwRead, &dwWritten, NULL);
+		if (dwRead - 2 >= BUFSIZE)
+			ErrorExit(TEXT("in writeToPipe function error! (message's lenght from client > bufsize"));
+		chBuf[dwRead] = '\r';
+		chBuf[dwRead + 1] = '\n';
+
+		bSuccess = WriteFile(g_hChildStd_IN_Wr, chBuf, dwRead + 2, &dwWritten, NULL);
 		if (!bSuccess)
 			ErrorExit(TEXT("cannot write to the pipe"));
-		if (dwRead != dwWritten)
+		if (dwRead + 2 != dwWritten)
 			ErrorExit(TEXT("In writeToPipe function error! (number of written bytes != number of read bytes)"));
 	}
 	else if (dwRead == 0)
@@ -146,24 +149,23 @@ int WriteToPipeFromSocket(SOCKET &ClientSocket)
 int WriteToSocketFromPipe(SOCKET &socket)
 {
 	DWORD dwRead, dwWritten;
-	CHAR chBuf[BUFSIZE];
+	CHAR buf[BUFSIZE];
 	BOOL bSuccess = FALSE;
 	HANDLE hParentStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
 	int iSendResult;
 
-	// in an infinite loop Read output from the child process's pipe for STDOUT
-	// and write to the parent process's pipe for STDOUT. 
+	// 
 	for (;;)
 	{
 		// 1. read from pipe an info that was written by Child process (CMD.EXE)
 		// and put this info into chBuf
-		bSuccess = ReadFile(g_hChildStd_OUT_Rd, chBuf, BUFSIZE, &dwRead, NULL);
+		bSuccess = ReadFile(g_hChildStd_OUT_Rd, buf, BUFSIZE, &dwRead, NULL);
 		if (!bSuccess || dwRead == 0)
 			return -1;
 
 		// 2.
 		//bSuccess = WriteFile((HANDLE)socket, chBuf, dwRead, &dwWritten, NULL);
-		iSendResult = send(socket, chBuf, dwRead, 0);
+		iSendResult = send(socket, buf, dwRead, 0);
 		if (iSendResult == SOCKET_ERROR) {
 			printf("send failed with error: %d\n", WSAGetLastError());
 			closesocket(socket);

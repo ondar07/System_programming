@@ -22,8 +22,6 @@ int __cdecl srv(void)
 	struct addrinfo hints;
 
 	int iSendResult;
-	char recvbuf[DEFAULT_BUFLEN];
-	int recvbuflen = DEFAULT_BUFLEN;
 
 	// Initialize Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -98,7 +96,7 @@ int __cdecl srv(void)
 
 	// Receive until the peer shuts down the connection
 	do {
-		// TODO: in another thread and error handling
+		// TODO: in another thread (maybe)
 		iResult = WriteToPipeFromSocket(ClientSocket);
 		if (iResult < 0)
 			printf("WriteToPipeFromSocket returns -1");

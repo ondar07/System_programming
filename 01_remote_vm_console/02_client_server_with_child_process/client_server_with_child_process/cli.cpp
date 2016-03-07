@@ -107,8 +107,10 @@ int __cdecl cli(int argc, char **argv)
 			printf("Connection closed\n");
 		else
 			printf("recv failed with error: %d\n", WSAGetLastError());
-		
-		printf_s("client get message from server: %s\n", recvbuf);
+
+		printf("CLIENT HAS GOT MESSAGE FROM SERVER:\n");
+		for (long i = 0; i < iResult; i++)		// iResult == number of read bytes
+			printf("%c", recvbuf[i]);
 	} while (iResult > 0);
 
 	// shutdown the connection since no more data will be sent
