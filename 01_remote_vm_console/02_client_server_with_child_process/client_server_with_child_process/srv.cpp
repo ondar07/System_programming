@@ -1,6 +1,7 @@
 #undef UNICODE
 
-#include "stdafx.h"
+#include "stdafx.h";
+#include "redirected_input_ouput.h";
 
 // Need to link with Ws2_32.lib
 #pragma comment (lib, "Ws2_32.lib")
@@ -21,8 +22,6 @@ int __cdecl srv(void)
 	struct addrinfo hints;
 
 	int iSendResult;
-	char recvbuf[DEFAULT_BUFLEN];
-	int recvbuflen = DEFAULT_BUFLEN;
 
 	// Initialize Winsock
 	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -92,18 +91,30 @@ int __cdecl srv(void)
 	// No longer need server socket
 	closesocket(ListenSocket);
 
+	// get signal from client, so should create CMD.EXE with redirected input/ouput
+	init_child_process();
+
 	// Receive until the peer shuts down the connection
 	do {
+		// TODO: in another thread (maybe)
+		iResult = WriteToPipeFromSocket(ClientSocket);
+		if (iResult < 0)
+			printf("WriteToPipeFromSocket returns -1");
+		iResult = WriteToSocketFromPipe(ClientSocket);
+		if (iResult < 0)
+			printf("WriteToSocketFromPipe returns -1");
 
+		/*
 		iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
 		if (iResult > 0) {
 			printf_s("Server get a message: %s\n", recvbuf);
-			
+			WriteToPipe(ClientSocket);
 			// TODO.
 			// in recvbuf should be our command name => here we should writeToPipe
 			//     => in child process (CMD.EXE) perform this command
 			// after that readFromPipe by parent's process (client process is the parent process)
 
+			
 			// TODO: in recvbuf (maybe, create another buffer, for example sendbuf) will be info being got from readFromPipe (see previous TODO)
 			iSendResult = send(ClientSocket, recvbuf, iResult, 0);
 			if (iSendResult == SOCKET_ERROR) {
@@ -113,7 +124,9 @@ int __cdecl srv(void)
 				return 1;
 			}
 			printf("Bytes sent: %d\n", iSendResult);
+			
 		}
+		
 		else if (iResult == 0)
 			printf("Connection closing...\n");
 		else {
@@ -122,8 +135,9 @@ int __cdecl srv(void)
 			WSACleanup();
 			return 1;
 		}
+		*/
 
-	} while (iResult > 0);
+	} while (iResult == 0);
 
 	// shutdown the connection since we're done
 	iResult = shutdown(ClientSocket, SD_SEND);

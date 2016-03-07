@@ -8,7 +8,7 @@
 #pragma comment (lib, "AdvApi32.lib")
 
 
-#define DEFAULT_BUFLEN 512
+#define RECV_BUFLEN 4096
 #define SENDBUF_LEN 256
 #define DEFAULT_PORT "27015"
 #define IP_ADDRESS_OF_MACHINE "127.0.0.1"		// localhost ip ( ! should be VM IP)
@@ -22,9 +22,8 @@ int __cdecl cli(int argc, char **argv)
 		hints;
 	//char *sendbuf = "this is a test\n";
 	char sendbuf[SENDBUF_LEN];
-	char recvbuf[DEFAULT_BUFLEN];
+	char recvbuf[RECV_BUFLEN];
 	int iResult;
-	int recvbuflen = DEFAULT_BUFLEN;
 
 	// Validate the parameters
 	if (argc != 2) {
@@ -101,15 +100,17 @@ int __cdecl cli(int argc, char **argv)
 
 		printf("Bytes Sent: %ld\n", iResult);
 
-		iResult = recv(ConnectSocket, recvbuf, recvbuflen, 0);
+		iResult = recv(ConnectSocket, recvbuf, RECV_BUFLEN, 0);
 		if (iResult > 0)
 			printf("Bytes received: %d\n", iResult);
 		else if (iResult == 0)
 			printf("Connection closed\n");
 		else
 			printf("recv failed with error: %d\n", WSAGetLastError());
-		
-		printf_s("client get message from server: %s\n", recvbuf);
+
+		printf("CLIENT HAS GOT MESSAGE FROM SERVER:\n");
+		for (long i = 0; i < iResult; i++)		// iResult == number of read bytes
+			printf("%c", recvbuf[i]);
 	} while (iResult > 0);
 
 	// shutdown the connection since no more data will be sent
