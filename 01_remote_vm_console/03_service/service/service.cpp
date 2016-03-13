@@ -27,6 +27,7 @@ VOID SvcReportEvent(LPTSTR);
 //
 VOID __stdcall SvcStart();
 VOID __stdcall SvcRemove();
+VOID __stdcall SvcStop();
 
 VOID __stdcall DisplayUsage()
 {
@@ -67,7 +68,7 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
         }
         else if (lstrcmpi(command, TEXT("stop")) == 0) {
             printf("\nhandle stop\n");
-            ;
+            SvcStop();
         }
         else if (lstrcmpi(command, TEXT("remove")) == 0) {
             printf("\nhandle remove\n");
@@ -488,37 +489,214 @@ VOID __stdcall SvcStart()
 
 //
 // Purpose: 
-//   Remove the service
+//   Stops the service.
 //
 // Parameters:
 //   None
 // 
 // Return value:
 //   None
-// (см. у парня на хабре)
-VOID __stdcall SvcRemove()
+//
+VOID __stdcall SvcStop()
 {
-    SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    if (hSCManager == NULL) {
+    SC_HANDLE schSCManager;
+    SC_HANDLE schService;
+    SERVICE_STATUS_PROCESS ssp;
+    DWORD dwStartTime = GetTickCount();
+    DWORD dwBytesNeeded;
+    DWORD dwTimeout = 30000; // 30-second time-out
+    DWORD dwWaitTime;
+
+    // Get a handle to the SCM database. 
+
+    schSCManager = OpenSCManager(
+        NULL,                    // local computer
+        NULL,                    // ServicesActive database 
+        SC_MANAGER_ALL_ACCESS);  // full access rights 
+
+    if (NULL == schSCManager)
+    {
         printf("OpenSCManager failed (%d)\n", GetLastError());
         return;
     }
 
-    // opens an existing service
-    SC_HANDLE hService = OpenService(hSCManager, SVCNAME, SERVICE_STOP | DELETE);
-    if (hService == NULL) {
+    // Get a handle to the service.
+
+    schService = OpenService(
+        schSCManager,         // SCM database 
+        SVCNAME,              // name of service 
+        SERVICE_STOP |
+        SERVICE_QUERY_STATUS |
+        SERVICE_ENUMERATE_DEPENDENTS);
+
+    if (schService == NULL)
+    {
         printf("OpenService failed (%d)\n", GetLastError());
-        CloseServiceHandle(hSCManager);
+        CloseServiceHandle(schSCManager);
         return;
     }
 
-    // TODO: error handling
-    if (!DeleteService(hService)) {
+    // Make sure the service is not already stopped.
+
+    if (!QueryServiceStatusEx(
+        schService,
+        SC_STATUS_PROCESS_INFO,
+        (LPBYTE)&ssp,
+        sizeof(SERVICE_STATUS_PROCESS),
+        &dwBytesNeeded))
+    {
+        printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+        goto stop_cleanup;
+    }
+
+    if (ssp.dwCurrentState == SERVICE_STOPPED)
+    {
+        printf("Service is already stopped.\n");
+        goto stop_cleanup;
+    }
+
+    // If a stop is pending, wait for it.
+
+    while (ssp.dwCurrentState == SERVICE_STOP_PENDING)
+    {
+        printf("Service stop pending...\n");
+
+        // Do not wait longer than the wait hint. A good interval is 
+        // one-tenth of the wait hint but not less than 1 second  
+        // and not more than 10 seconds. 
+
+        dwWaitTime = ssp.dwWaitHint / 10;
+
+        if (dwWaitTime < 1000)
+            dwWaitTime = 1000;
+        else if (dwWaitTime > 10000)
+            dwWaitTime = 10000;
+
+        Sleep(dwWaitTime);
+
+        if (!QueryServiceStatusEx(
+            schService,
+            SC_STATUS_PROCESS_INFO,
+            (LPBYTE)&ssp,
+            sizeof(SERVICE_STATUS_PROCESS),
+            &dwBytesNeeded))
+        {
+            printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+            goto stop_cleanup;
+        }
+
+        if (ssp.dwCurrentState == SERVICE_STOPPED)
+        {
+            printf("Service stopped successfully.\n");
+            goto stop_cleanup;
+        }
+
+        if (GetTickCount() - dwStartTime > dwTimeout)
+        {
+            printf("Service stop timed out.\n");
+            goto stop_cleanup;
+        }
+    }
+
+    // If the service is running, dependencies must be stopped first.
+    // StopDependentServices();
+
+    // Send a stop code to the service.
+
+    if (!ControlService(
+        schService,
+        SERVICE_CONTROL_STOP,
+        (LPSERVICE_STATUS)&ssp))
+    {
+        printf("ControlService failed (%d)\n", GetLastError());
+        goto stop_cleanup;
+    }
+
+    // Wait for the service to stop.
+
+    while (ssp.dwCurrentState != SERVICE_STOPPED)
+    {
+        Sleep(ssp.dwWaitHint);
+        if (!QueryServiceStatusEx(
+            schService,
+            SC_STATUS_PROCESS_INFO,
+            (LPBYTE)&ssp,
+            sizeof(SERVICE_STATUS_PROCESS),
+            &dwBytesNeeded))
+        {
+            printf("QueryServiceStatusEx failed (%d)\n", GetLastError());
+            goto stop_cleanup;
+        }
+
+        if (ssp.dwCurrentState == SERVICE_STOPPED)
+            break;
+
+        if (GetTickCount() - dwStartTime > dwTimeout)
+        {
+            printf("Wait timed out\n");
+            goto stop_cleanup;
+        }
+    }
+    printf("Service stopped successfully\n");
+
+stop_cleanup:
+    CloseServiceHandle(schService);
+    CloseServiceHandle(schSCManager);
+}
+
+//
+// Purpose: 
+//   Deletes a service from the SCM database
+//
+// Parameters:
+//   None
+// 
+// Return value:
+//   None
+//
+VOID __stdcall SvcRemove()
+{
+    SC_HANDLE schSCManager;
+    SC_HANDLE schService;
+    SERVICE_STATUS ssStatus;
+
+    // Get a handle to the SCM database. 
+
+    schSCManager = OpenSCManager(
+        NULL,                    // local computer
+        NULL,                    // ServicesActive database 
+        SC_MANAGER_ALL_ACCESS);  // full access rights 
+
+    if (NULL == schSCManager)
+    {
+        printf("OpenSCManager failed (%d)\n", GetLastError());
+        return;
+    }
+
+    // Get a handle to the service.
+
+    schService = OpenService(
+        schSCManager,       // SCM database 
+        SVCNAME,            // name of service 
+        DELETE);            // need delete access 
+
+    if (schService == NULL)
+    {
+        printf("OpenService failed (%d)\n", GetLastError());
+        CloseServiceHandle(schSCManager);
+        return;
+    }
+
+    // Delete the service.
+
+    if (!DeleteService(schService))
+    {
         printf("DeleteService failed (%d)\n", GetLastError());
-    } else 
-        printf("Service deleted successfully\n");
-    CloseServiceHandle(hService);
-    CloseServiceHandle(hSCManager);
+    }
+    else printf("Service deleted successfully\n");
+
+    CloseServiceHandle(schService);
+    CloseServiceHandle(schSCManager);
 }
 
 
