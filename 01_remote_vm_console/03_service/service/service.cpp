@@ -8,7 +8,7 @@
 
 #pragma comment(lib, "advapi32.lib")
 
-#define SVCNAME TEXT("SvcName")     // a name of the service (TODO: надо будет назвать)
+#define SVCNAME TEXT("RemConsSrv")     // a name of the service
 
 SERVICE_STATUS          gSvcStatus;     // Структура SERVICE_STATUS используется для оповещения SCM текущего статуса сервиса.
                                         // https://msdn.microsoft.com/en-us/library/ms685996(VS.85).aspx
@@ -241,24 +241,26 @@ VOID SvcInit(DWORD dwArgc, LPTSTR *lpszArgv)
 VOID SvcRemove()
 {
     SC_HANDLE hSCManager = OpenSCManager(NULL, NULL, SC_MANAGER_ALL_ACCESS);
-    if (!hSCManager) {
-        printf("Error: Can't open Service Control Manager");
+    if (hSCManager == NULL) {
+        printf("OpenSCManager failed (%d)\n", GetLastError());
         return;
     }
 
     // opens an existing service
     SC_HANDLE hService = OpenService(hSCManager, SVCNAME, SERVICE_STOP | DELETE);
-    if (!hService) {
-        printf("Error: Can't remove service");
+    if (hService == NULL) {
+        printf("OpenService failed (%d)\n", GetLastError());
         CloseServiceHandle(hSCManager);
         return;
     }
 
     // TODO: error handling
-    DeleteService(hService);
+    if (!DeleteService(hService)) {
+        printf("DeleteService failed (%d)\n", GetLastError());
+    } else 
+        printf("Service deleted successfully\n");
     CloseServiceHandle(hService);
     CloseServiceHandle(hSCManager);
-    printf("Success remove service!");
 }
 
 
