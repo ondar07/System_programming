@@ -4,7 +4,7 @@
 #include <windows.h>
 #include <tchar.h>
 #include <strsafe.h>
-//#include "sample.h"
+#include "messages.h"
 
 #pragma comment(lib, "advapi32.lib")
 
@@ -351,8 +351,6 @@ VOID WINAPI SvcCtrlHandler(DWORD requestedControlCode)
 //
 VOID SvcReportEvent(LPTSTR szFunction)
 {
-
-    /*
     HANDLE hEventSource;
     LPCTSTR lpszStrings[2];
     TCHAR Buffer[80];
@@ -379,5 +377,4 @@ VOID SvcReportEvent(LPTSTR szFunction)
 
         DeregisterEventSource(hEventSource);
     }
-    */
 }
