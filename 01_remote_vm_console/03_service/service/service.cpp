@@ -46,6 +46,13 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
         return;
     }
 
+    if (lstrcmpi(argv[1], TEXT("remove")) == 0)
+    {
+        SvcRemove();
+        return;
+    }
+
+
     // Можно: Add any additional services for the process to this table.
     // SERVICE_TABLE_ENTRY это структура, которая описывает точку входа для сервис менеджера
     // типа для сервиса с названием SVCNAME (см. define выше) точкой входа будет SvcMain (см. ниже)
@@ -214,7 +221,7 @@ VOID SvcInit(DWORD dwArgc, LPTSTR *lpszArgv)
     // TO_DO: Perform work until service stops.
 
     // TODO: ЗДЕСЬ должен быть главный код сервиса (того, что он делает), или в ЦИКЛЕ?
-
+    
     while (1)
     {
         // ждать, пока указанный объект (объект останова сервиса) не получит сигнал
