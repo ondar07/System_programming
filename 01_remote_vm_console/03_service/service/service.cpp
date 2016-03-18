@@ -74,7 +74,12 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
             printf("\nhandle remove\n");
             SvcRemove();
         }
-        
+        // TODO: srv (in stage II) --> service (without arguments)
+        // so "cli" for client
+        else if (lstrcmpi(command, TEXT("cli")) == 0) {
+            // calling function for client
+            ;
+        }
         else
         {
             _tprintf(TEXT("Unknown command (%s)\n\n"), command);
@@ -254,7 +259,9 @@ VOID SvcInit(DWORD dwArgc, LPTSTR *lpszArgv)
     // TO_DO: Perform work until service stops.
 
     // TODO: «ƒ≈—№ должен быть главный код сервиса (того, что он делает), или в ÷» Ћ≈?
-    
+
+    // TODO: there must be code of the server in stage II
+
     while (1)
     {
         // ждать, пока указанный объект (объект останова сервиса) не получит сигнал
@@ -529,7 +536,7 @@ VOID __stdcall SvcStop()
         SERVICE_QUERY_STATUS |
         SERVICE_ENUMERATE_DEPENDENTS);
 
-    if (schService == NULL)
+    if (NULL == schService)
     {
         printf("OpenService failed (%d)\n", GetLastError());
         CloseServiceHandle(schSCManager);
