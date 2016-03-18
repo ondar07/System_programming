@@ -85,21 +85,20 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
 
     // Otherwise, the service is probably being started by the SCM (Service Control Manager)
 
-
-    // Можно: Add any additional services for the process to this table.
-    // SERVICE_TABLE_ENTRY это структура, которая описывает точку входа для сервис менеджера
-    // типа для сервиса с названием SVCNAME (см. define выше) точкой входа будет SvcMain (см. ниже)
+    // in this process we can cause many services (but in our case there is a single service)
+    // SERVICE_TABLE_ENTRY: each element of the structure specifies the service name and the entry point for the service (this is used by SCManager)
+    // the entry point of SVCNAME service is 'SvcMain' function
     SERVICE_TABLE_ENTRY DispatchTable[] =
     {
         { SVCNAME, (LPSERVICE_MAIN_FUNCTION)SvcMain },
-        { NULL, NULL }
+        { NULL, NULL }      // The members of the last entry in the table must have NULL values to designate the end of the table
     };
 
-    // This call returns when the service has stopped. 
+    // This call returns when the service (all services in DispatchTable) has stopped. 
     // The process should simply terminate when the call returns.
-    // Функция StartServiceCtrlDispatcher собственно связывает наш сервис с SCM (Service Control Manager)
     if (!StartServiceCtrlDispatcher(DispatchTable))
     {
+        printf("StartServiceCtrlDispatcher error: %d", GetLastError());
         SvcReportEvent(TEXT("StartServiceCtrlDispatcher"));
     }
 }
@@ -120,13 +119,11 @@ VOID SvcInstall()
     SC_HANDLE schService;
     TCHAR servicePath[MAX_PATH];     // path to service's binary 
 
-    // 1. Пытаемся узнать путь к сервису.
-    // здесь используем функцию GetModuleFileName
-    // у парня на хабре: servicePath = LPTSTR(argv[0]);
+    // 1. get a path to our service
 
-    //if (!GetModuleFileName("", szPath, MAX_PATH))  -- но на "" ругается компилятор
+    //if (!GetModuleFileName("", szPath, MAX_PATH))  -- compilation error
     //If this parameter is NULL, GetModuleFileName retrieves the path of the executable file of the current process.
-    if (!GetModuleFileName(NULL, servicePath, MAX_PATH))         // https://msdn.microsoft.com/en-us/library/windows/desktop/ms683197(v=vs.85).aspx
+    if (!GetModuleFileName(NULL, servicePath, MAX_PATH))
     {
         printf("Cannot install service (%d)\n", GetLastError());
         return;
@@ -160,13 +157,16 @@ VOID SvcInstall()
         NULL,                      // LocalSystem account 
         NULL);                     // no password 
 
-    if (schService == NULL)
+    if (NULL == schService)
     {
         printf("CreateService failed (%d)\n", GetLastError());
         CloseServiceHandle(schSCManager);
         return;
     }
-    else printf("Service installed successfully\n");
+    else {
+        printf("Service installed successfully\n");
+        SvcReportEvent(TEXT("This is not error! Only for testing (Service installed successfully)"));
+    }
 
     CloseServiceHandle(schService);
     CloseServiceHandle(schSCManager);
@@ -306,7 +306,7 @@ VOID __stdcall SvcStart()
         SVCNAME,              // name of service 
         SERVICE_ALL_ACCESS);  // full access 
 
-    if (schService == NULL)
+    if (NULL == schService)
     {
         printf("OpenService failed (%d)\n", GetLastError());
         CloseServiceHandle(schSCManager);
@@ -680,7 +680,7 @@ VOID __stdcall SvcRemove()
         SVCNAME,            // name of service 
         DELETE);            // need delete access 
 
-    if (schService == NULL)
+    if (NULL == schService)
     {
         printf("OpenService failed (%d)\n", GetLastError());
         CloseServiceHandle(schSCManager);
@@ -729,8 +729,8 @@ VOID ReportSvcStatus(DWORD dwCurrentState,
         gSvcStatus.dwControlsAccepted = 0;
     else gSvcStatus.dwControlsAccepted = SERVICE_ACCEPT_STOP;
 
-    if ((dwCurrentState == SERVICE_RUNNING) ||
-        (dwCurrentState == SERVICE_STOPPED))
+    if ((SERVICE_RUNNING == dwCurrentState) ||
+        (SERVICE_STOPPED == dwCurrentState))
         gSvcStatus.dwCheckPoint = 0;
     else gSvcStatus.dwCheckPoint = dwCheckPoint++;
 
