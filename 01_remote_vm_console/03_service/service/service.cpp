@@ -1,112 +1,20 @@
 
 #include "stdafx.h"
-
-#include <windows.h>
-#include <tchar.h>
-#include <strsafe.h>
-#include <aclapi.h>
+#include "service.h"
 #include "messages.h"
+#include <aclapi.h>
 
 #pragma comment(lib, "advapi32.lib")
-
-#define SVCNAME TEXT("RemConsSrv")     // a name of the service
 
 SERVICE_STATUS          gSvcStatus;     // Структура SERVICE_STATUS используется для оповещения SCM текущего статуса сервиса.
                                         // https://msdn.microsoft.com/en-us/library/ms685996(VS.85).aspx
 SERVICE_STATUS_HANDLE   gSvcStatusHandle;
 HANDLE                  ghSvcStopEvent = NULL;
 
-VOID SvcInstall(void);
-VOID WINAPI SvcCtrlHandler(DWORD);
-VOID WINAPI SvcMain(DWORD, LPTSTR *);
+static VOID WINAPI SvcCtrlHandler(DWORD);
+static VOID ReportSvcStatus(DWORD, DWORD, DWORD);
+static VOID SvcInit(DWORD, LPTSTR *);
 
-VOID ReportSvcStatus(DWORD, DWORD, DWORD);
-VOID SvcInit(DWORD, LPTSTR *);
-VOID SvcReportEvent(LPTSTR);
-
-//
-VOID __stdcall SvcStart();
-VOID __stdcall SvcRemove();
-VOID __stdcall SvcStop();
-
-VOID __stdcall DisplayUsage()
-{
-    printf("Description:\n");
-    printf("\tCommand-line tool that controls a service.\n\n");
-    printf("Usage:\n");
-    printf("\tservice [command]\n\n");
-    printf("\t[command]\n");
-    printf("\t  install\n");
-    printf("\t  start\n");
-    printf("\t  stop\n");
-    printf("\t  remove\n");
-}
-
-//
-// Purpose: 
-//   Entry point for the process
-//
-// Parameters:
-//   None
-// 
-// Return value:
-//   None
-//
-void __cdecl _tmain(int argc, TCHAR *argv[])
-{
-    if (argc > 1) {
-        TCHAR command[10];
-
-        StringCchCopy(command, 10, argv[1]);
-        if (lstrcmpi(command, TEXT("install")) == 0) {
-            printf("\nhandle install\n");
-            SvcInstall();
-        }
-        else if (lstrcmpi(command, TEXT("start")) == 0) {
-            printf("\nhandle start\n");
-            SvcStart();
-        }
-        else if (lstrcmpi(command, TEXT("stop")) == 0) {
-            printf("\nhandle stop\n");
-            SvcStop();
-        }
-        else if (lstrcmpi(command, TEXT("remove")) == 0) {
-            printf("\nhandle remove\n");
-            SvcRemove();
-        }
-        // TODO: srv (in stage II) --> service (without arguments)
-        // so "cli" for client
-        else if (lstrcmpi(command, TEXT("cli")) == 0) {
-            // calling function for client
-            ;
-        }
-        else
-        {
-            _tprintf(TEXT("Unknown command (%s)\n\n"), command);
-            DisplayUsage();
-        }
-        return;
-    }
-
-    // Otherwise, the service is probably being started by the SCM (Service Control Manager)
-
-    // in this process we can cause many services (but in our case there is a single service)
-    // SERVICE_TABLE_ENTRY: each element of the structure specifies the service name and the entry point for the service (this is used by SCManager)
-    // the entry point of SVCNAME service is 'SvcMain' function
-    SERVICE_TABLE_ENTRY DispatchTable[] =
-    {
-        { SVCNAME, (LPSERVICE_MAIN_FUNCTION)SvcMain },
-        { NULL, NULL }      // The members of the last entry in the table must have NULL values to designate the end of the table
-    };
-
-    // This call returns when the service (all services in DispatchTable) has stopped. 
-    // The process should simply terminate when the call returns.
-    if (!StartServiceCtrlDispatcher(DispatchTable))
-    {
-        printf("StartServiceCtrlDispatcher error: %d", GetLastError());
-        SvcReportEvent(TEXT("StartServiceCtrlDispatcher"));
-    }
-}
 
 //
 // Purpose: 
