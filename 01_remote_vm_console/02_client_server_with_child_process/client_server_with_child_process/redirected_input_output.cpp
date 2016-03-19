@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "redirected_input_ouput.h"
+#include <Synchapi.h>
 
 //global variables should have been structures
 
@@ -9,10 +10,10 @@ HANDLE g_hChildStd_IN_Wr = NULL;
 HANDLE g_hChildStd_OUT_Rd = NULL;
 HANDLE g_hChildStd_OUT_Wr = NULL;
 
-static void CreateChildProcess(void);		// create Child process -- CMD.EXE (that will execute our commands written in the pipe)
+static PROCESS_INFORMATION CreateChildProcess(void);		// create Child process -- CMD.EXE (that will execute our commands written in the pipe)
 static void ErrorExit(PTSTR);		// error handling
 
-void init_child_process()
+PROCESS_INFORMATION InitChildProcess()
 {
 	SECURITY_ATTRIBUTES saAttr;
 
@@ -39,7 +40,7 @@ void init_child_process()
 		ErrorExit(TEXT("Stdin SetHandleInformation"));
 
 	// Create the child process. 
-	CreateChildProcess();
+	return CreateChildProcess();
 
 	// Write to the pipe that is the standard input for a child process. 
 	// Data is written to the pipe's buffers, so it is not necessary to wait
@@ -60,8 +61,10 @@ void init_child_process()
 
 }
 
-// Create a child process that uses the previously created pipes for STDIN and STDOUT.
-void CreateChildProcess()
+
+// Create a child process that uses the previously created pipes for STDIN and STDOUT
+// and returns PROCESS_INFORMATION, that is used in exit_child_process
+static PROCESS_INFORMATION CreateChildProcess()
 {
 	TCHAR cmdline[] = TEXT("cmd.exe");	// our child process is cmd.exe
 	PROCESS_INFORMATION piProcInfo;
@@ -95,19 +98,42 @@ void CreateChildProcess()
 		&piProcInfo);  // receives PROCESS_INFORMATION 
 
 					   // If an error occurs, exit the application. 
-	if (!bSuccess)
-		ErrorExit(TEXT("CreateProcess"));
-	else
-	{
-		// Close handles to the child process and its primary thread.
-		// Some applications might keep these handles to monitor the status
-		// of the child process, for example. 
+    if (!bSuccess) {
+        ErrorExit(TEXT("CreateProcess"));
+        // return NULL;
+    }
 
-		CloseHandle(piProcInfo.hProcess);
-		CloseHandle(piProcInfo.hThread);
-	}
+	// Close handles to the child process and its primary thread.
+	// Some applications might keep these handles to monitor the status
+	// of the child process, for example. 
+	CloseHandle(piProcInfo.hProcess);
+	CloseHandle(piProcInfo.hThread);
+    return piProcInfo;
 }
 
+
+void TerminateChildProcess(PROCESS_INFORMATION procInfo) {
+    HANDLE hHandle = NULL;
+    DWORD exitCode = 0;
+
+    // open handle (we have closed handles of the process in CreateChildProcess function)
+    hHandle = OpenProcess(PROCESS_ALL_ACCESS, FALSE, procInfo.dwProcessId);
+    // TODO: error handling
+    if (NULL == hHandle) {
+        printf("ERROR\n");
+    }
+
+    // TODO: error handling
+    if (!GetExitCodeProcess(hHandle, &exitCode)) {
+        printf("ERROR\n");
+    }
+    
+    //ExitProcess(exitCode);
+    TerminateProcess(hHandle, exitCode);
+    // Close the pipe handle so the child process stops reading. 
+    if (!CloseHandle(g_hChildStd_IN_Wr))
+        ErrorExit(TEXT("StdInWr CloseHandle"));
+}
 
 int WriteToPipeFromSocket(SOCKET &ClientSocket)
 {
@@ -116,65 +142,52 @@ int WriteToPipeFromSocket(SOCKET &ClientSocket)
 	BOOL bSuccess = FALSE;
 
 	dwRead = recv(ClientSocket, chBuf, BUFSIZE, 0);
+    if ((DWORD)SOCKET_ERROR == dwRead) {
+        printf("recv failed with error: %d (connection was closed)\n", WSAGetLastError());
+        return -1;
+    }
 	if (dwRead > 0) {
-		if (dwRead - 2 >= BUFSIZE)
+		if (dwRead - 1 >= BUFSIZE)
 			ErrorExit(TEXT("in writeToPipe function error! (message's lenght from client > bufsize"));
-		chBuf[dwRead] = '\r';
-		chBuf[dwRead + 1] = '\n';
+		chBuf[dwRead] = '\n';
 
-		bSuccess = WriteFile(g_hChildStd_IN_Wr, chBuf, dwRead + 2, &dwWritten, NULL);
+		bSuccess = WriteFile(g_hChildStd_IN_Wr, chBuf, dwRead + 1, &dwWritten, NULL);
 		if (!bSuccess)
 			ErrorExit(TEXT("cannot write to the pipe"));
-		if (dwRead + 2 != dwWritten)
+		if (dwRead + 1 != dwWritten)
 			ErrorExit(TEXT("In writeToPipe function error! (number of written bytes != number of read bytes)"));
 	}
 	else if (dwRead == 0)
 		printf("Connection closing...\n");
-	else {
-		printf("recv failed with error: %d\n", WSAGetLastError());
-		closesocket(ClientSocket);
-		WSACleanup();
-		return -1;
-	}
 	
-	
-	// TODO: create separate function to close handle!
-	// Close the pipe handle so the child process stops reading. 
-	//if (!CloseHandle(g_hChildStd_IN_Wr))
-	//	ErrorExit(TEXT("StdInWr CloseHandle"));
 	return 0;
 }
 
 
 int WriteToSocketFromPipe(SOCKET &socket)
 {
-	DWORD dwRead, dwWritten;
+    DWORD dwRead, dwWritten;
 	CHAR buf[BUFSIZE];
 	BOOL bSuccess = FALSE;
 	HANDLE hParentStdOut = GetStdHandle(STD_OUTPUT_HANDLE);
-	int iSendResult;
+	LONG iSendResult;
 
-	// 
-	for (;;)
-	{
-		// 1. read from pipe an info that was written by Child process (CMD.EXE)
-		// and put this info into chBuf
-		bSuccess = ReadFile(g_hChildStd_OUT_Rd, buf, BUFSIZE, &dwRead, NULL);
-		if (!bSuccess || dwRead == 0)
-			return -1;
+    // TODO: 
+    Sleep(1000);
 
-		// 2.
-		//bSuccess = WriteFile((HANDLE)socket, chBuf, dwRead, &dwWritten, NULL);
-		iSendResult = send(socket, buf, dwRead, 0);
-		if (iSendResult == SOCKET_ERROR) {
-			printf("send failed with error: %d\n", WSAGetLastError());
-			closesocket(socket);
-			WSACleanup();
-			return -1;
-		}
+    // 1. read from pipe an info that was written by Child process (CMD.EXE)
+    // and put this info into chBuf
+    bSuccess = ReadFile(g_hChildStd_OUT_Rd, buf, BUFSIZE, &dwRead, NULL);
+    if (!bSuccess || dwRead == 0)
+        return -1;
 
-		break;
-	}
+    // 2.
+    iSendResult = send(socket, buf, dwRead, 0);
+    if (SOCKET_ERROR == iSendResult) {
+        printf("send failed with error: %d (connection was closed)\n", WSAGetLastError());
+        return -1;
+    }
+
 	return 0;
 }
 

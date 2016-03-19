@@ -15,6 +15,7 @@ static VOID WINAPI SvcCtrlHandler(DWORD);
 static VOID ReportSvcStatus(DWORD, DWORD, DWORD);
 static VOID SvcInit(DWORD, LPTSTR *);
 
+int __cdecl srv(void);
 
 //
 // Purpose: 
@@ -169,6 +170,7 @@ VOID SvcInit(DWORD dwArgc, LPTSTR *lpszArgv)
     // TODO: «ƒ≈—№ должен быть главный код сервиса (того, что он делает), или в ÷» Ћ≈?
 
     // TODO: there must be code of the server in stage II
+    srv();
 
     while (1)
     {

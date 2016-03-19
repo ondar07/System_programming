@@ -146,6 +146,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="messages.h" />
+    <ClInclude Include="rdrctd_in_out_childprocess.h" />
     <ClInclude Include="service.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
@@ -153,7 +154,9 @@
   <ItemGroup>
     <ClCompile Include="cli.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="rdrctd_in_out_childprocess.cpp" />
     <ClCompile Include="service.cpp" />
+    <ClCompile Include="srv.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>

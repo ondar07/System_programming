@@ -11,7 +11,7 @@
 #define DEFAULT_PORT "27015"
 #define IP_ADDRESS_OF_MACHINE "127.0.0.1"		// TODO: localhost ip ( ! should be VM IP)
 
-int __cdecl cli(int argc, char **argv)
+int __cdecl cli(int argc, TCHAR *argv[])
 {
     WSADATA wsaData;
     SOCKET ConnectSocket = INVALID_SOCKET;
@@ -126,3 +126,8 @@ int __cdecl cli(int argc, char **argv)
 
     return 0;
 }
+
+#undef RECV_BUFLEN
+#undef SENDBUF_LEN
+#undef DEFAULT_PORT
+#undef IP_ADDRESS_OF_MACHINE

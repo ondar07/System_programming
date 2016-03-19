@@ -58,7 +58,7 @@ int __cdecl cli(int argc, char **argv)
 		// Create a SOCKET for connecting to server
 		ConnectSocket = socket(ptr->ai_family, ptr->ai_socktype,
 			ptr->ai_protocol);
-		if (ConnectSocket == INVALID_SOCKET) {
+		if (INVALID_SOCKET == ConnectSocket) {
 			printf("socket failed with error: %ld\n", WSAGetLastError());
 			WSACleanup();
 			return 1;
@@ -66,7 +66,7 @@ int __cdecl cli(int argc, char **argv)
 
 		// Connect to server.
 		iResult = connect(ConnectSocket, ptr->ai_addr, (int)ptr->ai_addrlen);
-		if (iResult == SOCKET_ERROR) {
+		if (SOCKET_ERROR == iResult) {
 			closesocket(ConnectSocket);
 			ConnectSocket = INVALID_SOCKET;
 			continue;
@@ -76,7 +76,7 @@ int __cdecl cli(int argc, char **argv)
 
 	freeaddrinfo(result);
 
-	if (ConnectSocket == INVALID_SOCKET) {
+	if (INVALID_SOCKET == ConnectSocket) {
 		printf("Unable to connect to server!\n");
 		WSACleanup();
 		return 1;
@@ -91,7 +91,7 @@ int __cdecl cli(int argc, char **argv)
 
 		// Send our input to server (Virtual Machine)
 		iResult = send(ConnectSocket, sendbuf, (int)strlen(sendbuf), 0);
-		if (iResult == SOCKET_ERROR) {
+		if (SOCKET_ERROR == iResult) {
 			printf("send failed with error: %d\n", WSAGetLastError());
 			closesocket(ConnectSocket);
 			WSACleanup();
@@ -100,22 +100,23 @@ int __cdecl cli(int argc, char **argv)
 
 		printf("Bytes Sent: %ld\n", iResult);
 
-		iResult = recv(ConnectSocket, recvbuf, RECV_BUFLEN, 0);
-		if (iResult > 0)
-			printf("Bytes received: %d\n", iResult);
-		else if (iResult == 0)
-			printf("Connection closed\n");
-		else
-			printf("recv failed with error: %d\n", WSAGetLastError());
+        iResult = recv(ConnectSocket, recvbuf, RECV_BUFLEN, 0);
+        if (iResult > 0)
+            printf("Bytes received: %d\n", iResult);
+        else if (iResult == 0)
+            printf("Connection closed\n");
+        else
+            printf("recv failed with error: %d\n", WSAGetLastError());
 
-		printf("CLIENT HAS GOT MESSAGE FROM SERVER:\n");
-		for (long i = 0; i < iResult; i++)		// iResult == number of read bytes
-			printf("%c", recvbuf[i]);
+        printf("CLIENT HAS GOT MESSAGE FROM SERVER:\n");
+        // TODO: print output normally
+        for (long i = 0; i < iResult; i++)		// iResult == number of read bytes
+            printf("%c", recvbuf[i]);
 	} while (iResult > 0);
 
 	// shutdown the connection since no more data will be sent
 	iResult = shutdown(ConnectSocket, SD_SEND);
-	if (iResult == SOCKET_ERROR) {
+	if (SOCKET_ERROR == iResult) {
 		printf("shutdown failed with error: %d\n", WSAGetLastError());
 		closesocket(ConnectSocket);
 		WSACleanup();

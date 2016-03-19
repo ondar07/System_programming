@@ -3,6 +3,7 @@
 
 #define BUFSIZE 4096
 
-void init_child_process();
+PROCESS_INFORMATION InitChildProcess();
+void TerminateChildProcess(PROCESS_INFORMATION procInfo);
 int WriteToPipeFromSocket(SOCKET &socket);
 int WriteToSocketFromPipe(SOCKET &socket);

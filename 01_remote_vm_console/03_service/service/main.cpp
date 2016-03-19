@@ -2,7 +2,7 @@
 #include "service.h"
 
 // client main function
-int __cdecl cli(int argc, char **argv);
+int __cdecl cli(int argc, TCHAR *argv[]);
 
 VOID __stdcall DisplayUsage()
 {
@@ -50,10 +50,8 @@ void __cdecl _tmain(int argc, TCHAR *argv[])
             printf("\nhandle remove\n");
             SvcRemove();
         }
-        // TODO: srv (in stage II) --> service (without arguments)
-        // so "cli" for client
         else if (lstrcmpi(command, TEXT("cli")) == 0) {
-            // calling function for client
+            // the default service is 'srv' app (Stage II), i.e. without arguments
             cli(argc, argv);
         }
         else

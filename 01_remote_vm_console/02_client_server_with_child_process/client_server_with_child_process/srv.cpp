@@ -16,15 +16,14 @@ int __cdecl srv(void)
 	int iResult;
 
 	SOCKET ListenSocket = INVALID_SOCKET;	// this SOCKET is for listening (waiting connections from client)
-	SOCKET ClientSocket = INVALID_SOCKET;	// actual socket (this value will be returned by accept function, see link below)
-
+	
 	struct addrinfo *result = NULL;
 	struct addrinfo hints;
 
 	int iSendResult;
 
 	// Initialize Winsock
-	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData);
+	iResult = WSAStartup(MAKEWORD(2, 2), &wsaData); // the Windows Sockets specification is version 2.2
 	if (iResult != 0) {
 		printf("WSAStartup failed with error: %d\n", iResult);
 		return 1;
@@ -73,83 +72,50 @@ int __cdecl srv(void)
 		return 1;
 	}
 
-	// Accept a client socket
-	
-	// The accept function extracts the first connection on the queue of pending connections on socket s.
-	// It then creates and returns a handle to the NEW SOCKET.
-	// The newly created socket is the socket that will handle the ACTUAL CONNECTION
-	// The accept function can BLOCK the CALLER (this process) until a connection is present if no pending connections are present on the queue
-	// more about accept function : https://msdn.microsoft.com/ru-ru/library/windows/desktop/ms737526(v=vs.85).aspx
-	ClientSocket = accept(ListenSocket, NULL, NULL);
-	if (ClientSocket == INVALID_SOCKET) {
-		printf("accept failed with error: %d\n", WSAGetLastError());
-		closesocket(ListenSocket);
-		WSACleanup();
-		return 1;
-	}
+    for (;;) {
+        SOCKET ClientSocket = INVALID_SOCKET;	// actual socket (this value will be returned by accept function, see link below)
+        
+        // Accept a client socket
 
-	// No longer need server socket
-	closesocket(ListenSocket);
+        // The accept function extracts the first connection on the queue of pending connections on socket s.
+        // It then creates and returns a handle to the NEW SOCKET.
+        // The newly created socket is the socket that will handle the ACTUAL CONNECTION
+        // The accept function can BLOCK the CALLER (this process) until a connection is present if no pending connections are present on the queue
+        // more about accept function : https://msdn.microsoft.com/ru-ru/library/windows/desktop/ms737526(v=vs.85).aspx
+        ClientSocket = accept(ListenSocket, NULL, NULL);
+        if (INVALID_SOCKET == ClientSocket) {
+            printf("accept failed with error: %d\n", WSAGetLastError());
+            closesocket(ListenSocket);
+            continue;
+        }
 
-	// get signal from client, so should create CMD.EXE with redirected input/ouput
-	init_child_process();
+        // connection with a client has been set up
+        // so create CMD.EXE with redirected input/ouput
+        PROCESS_INFORMATION childProcInfo;
+        childProcInfo = InitChildProcess();
 
-	// Receive until the peer shuts down the connection
-	do {
-		// TODO: in another thread (maybe)
-		iResult = WriteToPipeFromSocket(ClientSocket);
-		if (iResult < 0)
-			printf("WriteToPipeFromSocket returns -1");
-		iResult = WriteToSocketFromPipe(ClientSocket);
-		if (iResult < 0)
-			printf("WriteToSocketFromPipe returns -1");
+        // Receive until the peer shuts down the connection
+        for (;;) {
+            // TODO: in another thread (maybe)
+            if (WriteToPipeFromSocket(ClientSocket) < 0)
+                break;
+            if (WriteToSocketFromPipe(ClientSocket) < 0)
+                break;
+        }
 
-		/*
-		iResult = recv(ClientSocket, recvbuf, recvbuflen, 0);
-		if (iResult > 0) {
-			printf_s("Server get a message: %s\n", recvbuf);
-			WriteToPipe(ClientSocket);
-			// TODO.
-			// in recvbuf should be our command name => here we should writeToPipe
-			//     => in child process (CMD.EXE) perform this command
-			// after that readFromPipe by parent's process (client process is the parent process)
+        // shutdown the connection since we're done
+        iResult = shutdown(ClientSocket, SD_SEND);
+        if (SOCKET_ERROR == iResult) {
+            printf("shutdown failed with error: %d\n", WSAGetLastError());
+            closesocket(ClientSocket);
+        }
 
-			
-			// TODO: in recvbuf (maybe, create another buffer, for example sendbuf) will be info being got from readFromPipe (see previous TODO)
-			iSendResult = send(ClientSocket, recvbuf, iResult, 0);
-			if (iSendResult == SOCKET_ERROR) {
-				printf("send failed with error: %d\n", WSAGetLastError());
-				closesocket(ClientSocket);
-				WSACleanup();
-				return 1;
-			}
-			printf("Bytes sent: %d\n", iSendResult);
-			
-		}
-		
-		else if (iResult == 0)
-			printf("Connection closing...\n");
-		else {
-			printf("recv failed with error: %d\n", WSAGetLastError());
-			closesocket(ClientSocket);
-			WSACleanup();
-			return 1;
-		}
-		*/
-
-	} while (iResult == 0);
-
-	// shutdown the connection since we're done
-	iResult = shutdown(ClientSocket, SD_SEND);
-	if (iResult == SOCKET_ERROR) {
-		printf("shutdown failed with error: %d\n", WSAGetLastError());
-		closesocket(ClientSocket);
-		WSACleanup();
-		return 1;
-	}
+        // exit the child process (CMD.exe) after this connection is closed
+        TerminateChildProcess(childProcInfo);
+    }
 
 	// cleanup
-	closesocket(ClientSocket);
+    closesocket(ListenSocket);
 	WSACleanup();
 
 	return 0;
